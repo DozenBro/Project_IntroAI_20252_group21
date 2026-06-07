@@ -44,5 +44,3 @@ with open('toan_bo_project.txt', 'w', encoding='utf-8') as outfile:
                         outfile.write(f"\n{'='*50}\nFILE: {filepath}\n{'='*50}\n")
                         with open(filepath, 'r', encoding='utf-8') as infile:
                             outfile.write(infile.read())
-
-print("🎉 Đã gộp thành công! (Bao gồm cả code đã được lọc sạch từ Jupyter Notebooks)")

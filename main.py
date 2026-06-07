@@ -1,5 +1,5 @@
 import os
-import joblib # Thêm thư viện này để load Label Encoder
+import joblib 
 from src.utils import ensure_directories
 from src.data_layer import DataProcessor
 from src.prediction_layer import PredictionModel
@@ -7,20 +7,22 @@ from src.xai_layer import XAILayer
 from src.advisory_layer import AdvisoryLayer
 
 def run_automated_pipeline():
-    # 1. Tạo sẵn các thư mục lưu trữ
+    """Executes the end-to-end automated machine learning pipeline."""
+    
+    # 1. Initialize storage directories
     ensure_directories()
-    print("🚀 BẮT ĐẦU CHẠY LUỒNG DỮ LIỆU TỰ ĐỘNG (BACKEND PIPELINE)...")
+    print("🚀 INITIATING AUTOMATED BACKEND PIPELINE...")
 
-    # 2. Chạy Tầng 1: Xử lý dữ liệu
+    # 2. Execute Data Layer: Data processing and resampling
     dp = DataProcessor(config_path='config.yaml')
     X_train, X_test, y_train, y_test, feature_names = dp.prepare_data()
 
-    # 3. Chạy Tầng 2: Huấn luyện mô hình
+    # 3. Execute Prediction Layer: Model training
     pm = PredictionModel(config_path='config.yaml')
     model = pm.train_and_evaluate(X_train, y_train, X_test, y_test)
 
-    # 4. Chạy Tầng 3: Giải thích XAI
-    print("\n🔍 Đang trích xuất một sinh viên có nguy cơ rớt môn...")
+    # 4. Execute XAI Layer: Extract a high-risk student for case study
+    print("\n🔍 Extracting a high-risk student profile for analysis...")
     y_pred = model.predict(X_test)
     dropout_indices = [i for i, pred in enumerate(y_pred) if pred == 0]
     
@@ -28,46 +30,45 @@ def run_automated_pipeline():
         sample_idx = dropout_indices[0]
         student_data = X_test.iloc[sample_idx]
         
-        # Chạy XAI để lấy nguyên nhân
+        # Run LIME to extract root causes of the predicted risk
         xai = XAILayer(model_path='outputs/models/xgboost_model.pkl')
         lime_reasons = xai.explain_student(X_train, student_data, feature_names)
 
-        # 5. Chạy Tầng 4: Sinh lời khuyên bằng AI
+        # 5. Execute Advisory Layer: Generative AI reporting
         probs = model.predict_proba([student_data.values])
         dropout_prob = float(probs[0][0]) * 100 
         
-        # Phân loại trạng thái AI dự đoán
+        # Classify AI predicted risk level
         if dropout_prob >= 80:
-            status_text = f"🚨 NGUY HIỂM - Nguy cơ bị buộc thôi học ({dropout_prob:.1f}%)"
+            status_text = f"🚨 CRITICAL RISK - High chance of dropout ({dropout_prob:.1f}%)"
         elif dropout_prob >= 60:
-            status_text = f"⚠️ CẢNH CÁO HỌC TẬP - Rủi ro cao ({dropout_prob:.1f}%)"
+            status_text = f"⚠️ ACADEMIC WARNING - High risk ({dropout_prob:.1f}%)"
         elif dropout_prob >= 40:
-            status_text = f"🟡 CẦN CẢI THIỆN THÊM - Đang chểnh mảng ({dropout_prob:.1f}%)"
+            status_text = f"🟡 NEEDS IMPROVEMENT - Slipping performance ({dropout_prob:.1f}%)"
         elif dropout_prob >= 20:
-            status_text = f"✅ PHONG ĐỘ ỔN ĐỊNH - Nguy cơ thấp ({dropout_prob:.1f}%)"
+            status_text = f"✅ STABLE PERFORMANCE - Low risk ({dropout_prob:.1f}%)"
         else:
-            status_text = f"🌟 PHONG ĐỘ XUẤT SẮC - An toàn ({dropout_prob:.1f}%)"
+            status_text = f"🌟 EXCELLENT PERFORMANCE - Safe ({dropout_prob:.1f}%)"
 
-        # --- ĐOẠN MỚI THÊM ĐỂ SỬA LỖI ---
-        # Lấy trạng thái thực tế (Ground Truth) từ tập y_test
+        # Retrieve Ground Truth to provide accurate context for LLM role-prompting
         le = joblib.load('outputs/models/label_encoder.pkl')
         actual_label_code = y_test.iloc[sample_idx] if hasattr(y_test, 'iloc') else y_test[sample_idx]
         actual_status = le.inverse_transform([actual_label_code])[0]
 
         adv = AdvisoryLayer()
-        # Gọi hàm get_advice với đầy đủ 3 tham số (thêm actual_status)
+        # Generate personalized advice using Groq/Gemini APIs
         prompt, advice = adv.get_advice(lime_reasons, status_text, actual_status, use_mock=False)
 
-        # 6. Lưu báo cáo ra file văn bản (Markdown)
+        # 6. Export report to a Markdown file
         report_filename = f"outputs/reports/student_{sample_idx}_diagnostic.md"
         with open(report_filename, "w", encoding="utf-8") as f:
             f.write(advice)
             
-        print(f"\n✅ THÀNH CÔNG: Đã lưu báo cáo tư vấn chi tiết vào file '{report_filename}'!")
+        print(f"\n✅ SUCCESS: Detailed diagnostic report saved to '{report_filename}'!")
     else:
-        print("Không tìm thấy sinh viên nào bị dự đoán là Dropout trong tập test này.")
+        print("No students predicted as Dropout in the current test set.")
 
-    print("🎉 HOÀN TẤT TOÀN BỘ QUY TRÌNH!")
+    print("🎉 PIPELINE EXECUTION COMPLETE!")
 
 if __name__ == "__main__":
     run_automated_pipeline()
