@@ -1,0 +1,14 @@
+# Bỏ qua môi trường ảo (quá nặng, không cần thiết)
+venv/
+.venv/
+
+# Bỏ qua các file môi trường chứa API Key bảo mật
+.env
+
+# Bỏ qua các file cache và hệ thống của Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Bỏ qua thư mục chứa model đã train (nếu file .pkl quá nặng > 50MB)
+# outputs/models/

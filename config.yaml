@@ -1,0 +1,15 @@
+data:
+  raw_path: "data/raw/data.csv"
+  processed_path: "data/processed/data_cleaned.csv"
+  target_col: "Target"
+
+preprocessing:
+  test_size: 0.2
+  random_state: 42
+  cv_folds: 5
+
+model:
+  xgboost:
+    n_estimators: 100
+    max_depth: 6
+    learning_rate: 0.1
