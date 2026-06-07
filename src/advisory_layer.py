@@ -34,30 +34,36 @@ class AdvisoryLayer:
         for condition, weight in lime_reasons:
             if abs(weight) < 0.05: continue 
             if weight > 0:
-                reason_desc = f"Rào cản từ: {condition} (Mức độ ảnh hưởng: {weight:.2f})"
+                reason_desc = f"Rào cản/Yếu tố chú ý: {condition} (Mức ảnh hưởng: {weight:.2f})"
                 condition_lower = condition.lower()
                 if "approved" in condition_lower:
-                    reason_desc += " -> LƯU Ý CHO AI: 'approved' là số môn THI ĐỖ. KHÔNG suy diễn là 'đỗ nhiều môn gây quá tải'."
+                    reason_desc += " -> LƯU Ý: 'approved' là số môn THI ĐỖ. KHÔNG suy diễn là 'đỗ nhiều gây quá tải'."
                 elif "age" in condition_lower:
-                    reason_desc += " -> LƯU Ý CHO AI: Đây là tuổi nhập học chuẩn (18 tuổi). KHÔNG nhận xét là 'thiếu trưởng thành'."
+                    reason_desc += " -> LƯU Ý: Đây là tuổi nhập học chuẩn (18 tuổi). KHÔNG nhận xét là 'thiếu trưởng thành'."
                 elif "debtor" in condition_lower:
                     if "<=" in condition: continue 
-                    else: reason_desc += " -> LƯU Ý CHO AI: Đây là tình trạng nợ phí. Hãy phân tích khách quan."
+                    else: reason_desc += " -> LƯU Ý: Đây là tình trạng nợ phí. Hãy phân tích khách quan."
                 filtered_reasons.append("- " + reason_desc)
 
         reasons_text = "\n".join(filtered_reasons)
         if not reasons_text.strip():
-            reasons_text = "- LƯU Ý CHO AI: Hệ thống không trích xuất được rào cản cụ thể. Hãy khuyên sinh viên rà soát lại phương pháp học."
+            reasons_text = "- LƯU Ý: Không có yếu tố rào cản nào đáng kể. Sinh viên đang có các chỉ số rất ổn định."
 
         return f"""
         [THÔNG TIN SINH VIÊN]
-        - Trạng thái AI dự đoán: {status_text}
-        - Trạng thái thực tế: {actual_status}
-        - LƯU Ý PHÂN TÍCH: Nếu trạng thái AI và thực tế khác nhau, hãy phân tích dựa trên sự mâu thuẫn này.
-        [Các nguyên nhân chính]: {reasons_text}
+        - Đánh giá của Hệ thống Cảnh báo (AI): {status_text}
+        - Trạng thái thực tế: {actual_status} (Lưu ý: 'Enrolled' nghĩa là đang theo học bình thường, 'Graduate' là đã tốt nghiệp, 'Dropout' là đã bỏ học).
+        
+        [YÊU CẦU CHO BẠN (CỐ VẤN HỌC TẬP)]
+        1. ĐỪNG CỐ TÌM KIẾM SỰ MÂU THUẪN. Việc AI đánh giá "Phong độ xuất sắc" cho một sinh viên "Enrolled" hay "Graduate" là sự ĐỒNG THUẬN tích cực.
+        2. NHIỆM VỤ CHÍNH: Dựa vào [Đánh giá của Hệ thống] và các yếu tố bên dưới, hãy viết một đoạn nhận xét/tư vấn tự nhiên, ngắn gọn. 
+        3. Phân tích cụ thể xem các yếu tố đó đang đem lại lợi thế gì, hoặc cảnh báo những rủi ro nhỏ nào có thể ảnh hưởng đến kết quả học tập. Đừng dùng từ ngữ máy móc.
+
+        [Các yếu tố phân tích từ hệ thống LIME]: 
+        {reasons_text}
+        
         {self.format_constraints}
         """
-
     def get_advice(self, lime_reasons, status_text, actual_status, use_mock=False):
         user_prompt = self.generate_prompt(lime_reasons, status_text, actual_status)
         full_prompt = f"{self.meta_prompt}\n\n{user_prompt}"
