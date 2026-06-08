@@ -3,7 +3,7 @@ SmartEdu Advisor
 SmartEdu Advisor là hệ thống cảnh báo sớm và tư vấn học tập cá nhân hóa dành cho sinh viên đại học. Dự án kết hợp các mô hình Machine Learning mạnh mẽ với khả năng giải thích của XAI và trí tuệ từ các mô hình ngôn ngữ lớn (LLM).
 
 Tính năng chính
-Phân loại trạng thái học tập của sinh viên: Dropout, Enrolled, hoặc Graduate dựa trên dữ liệu học thuật và phi học thuật.
+Cảnh báo sớm nguy cơ bỏ học (Dropout) của sinh viên dựa trên phân tích dữ liệu học thuật và phi học thuật.
 
 Giải thích lý do đằng sau các dự đoán của AI bằng kỹ thuật LIME, giúp giảng viên và sinh viên hiểu rõ rào cản học tập.
 
