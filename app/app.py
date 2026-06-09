@@ -1,108 +1,165 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import joblib
 import random
 import sys
 import os
-import joblib
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, ".."))
+sys.path.append(project_root)
 
 from src.data_layer import DataProcessor
 from src.xai_layer import XAILayer
 from src.advisory_layer import AdvisoryLayer
 
-st.set_page_config(page_title="SmartEdu Advisor", page_icon="🎓", layout="wide")
+# 1. PAGE CONFIGURATION
+st.set_page_config(page_title="SmartEdu AI Advisor", page_icon="🎓", layout="wide")
 
-st.title("🎓 SmartEdu Advisor")
-st.markdown("**Early Warning and Personalized Academic Advising System** *(Powered by XGBoost, LIME, and GenAI)*")
+st.markdown("""
+    <style>
+    .big-font { font-size: 24px !important; font-weight: bold; }
+    .score-green { color: #2e7d32; font-size: 48px !important; font-weight: bold; }
+    .score-red { color: #c62828; font-size: 48px !important; font-weight: bold; }
+    .score-yellow { color: #f9a825; font-size: 48px !important; font-weight: bold; }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# 2. LOAD BACKEND SYSTEM (Cached for speed)
 
 @st.cache_resource
 def load_system_backend():
+    print("Loading Backend System for Web App...")
     dp = DataProcessor(config_path='config.yaml')
     X_train, X_test, y_train, y_test, feature_names = dp.prepare_data()
     
-    xai = XAILayer(model_path='outputs/models/xgboost_model.pkl')
-    adv = AdvisoryLayer()
+    # Check if model exists
+    if not os.path.exists('outputs/models/ensemble_model.pkl'):
+        st.error("🚨 Model not found! Please run 'python main.py' in your terminal first to train the model.")
+        st.stop()
+        
+    model = joblib.load('outputs/models/ensemble_model.pkl')
+    xai_layer = XAILayer(model_path='outputs/models/ensemble_model.pkl')
+    adv_layer = AdvisoryLayer()
     
-    le = joblib.load('outputs/models/label_encoder.pkl')
-    target_names = le.classes_.tolist()
-    
-    return X_train, X_test, y_test, feature_names, xai, adv, target_names
+    return X_train, X_test, y_train, y_test, feature_names, model, xai_layer, adv_layer
 
-X_train, X_test, y_test, feature_names, xai_layer, adv_layer, target_names = load_system_backend()
+try:
+    X_train, X_test, y_train, y_test, feature_names, model, xai_layer, adv_layer = load_system_backend()
+except Exception as e:
+    st.error(f"Error loading system: {e}")
+    st.stop()
 
-st.sidebar.header("👨‍🎓 Student Profile")
-st.sidebar.write("Simulate extracting a student record from the database.")
+# 3. SIDEBAR & STATE MANAGEMENT
 
-if st.sidebar.button("🎲 Extract Random Student", width="stretch"):
-    st.session_state['student_idx'] = random.randint(0, len(X_test) - 1)
+st.sidebar.title("🎓 SmartEdu System")
+st.sidebar.write("Student Performance Prediction & Diagnostics")
 
-if 'student_idx' in st.session_state:
-    idx = st.session_state['student_idx']
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ AI Settings")
+
+# Thêm Dropdown chọn Model AI
+selected_llm = st.sidebar.selectbox("Select GenAI Model:", ["Groq (Llama-3.3)", "Google (Gemini 1.5)"])
+
+if 'selected_idx' not in st.session_state:
+    st.session_state.selected_idx = None
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🎲 Extract Random Student", use_container_width=True):
+    st.session_state.selected_idx = random.randint(0, len(X_test) - 1)
+
+# 4. MAIN DASHBOARD
+st.title("📊 AI Academic Diagnostic Dashboard")
+
+if st.session_state.selected_idx is not None:
+    idx = st.session_state.selected_idx
     student_data = X_test.iloc[idx]
-    actual_status = target_names[y_test[idx]]
     
-    st.sidebar.success(f"Analyzing Student Index: #{idx}")
-    st.sidebar.info(f"Ground Truth: **{actual_status}**")
+    # Thực hiện dự đoán bằng Ensemble Model
+    # model.predict nhận mảng 2D, trả về mảng 1D. Lấy phần tử [0]
+    predicted_score = float(model.predict(student_data.values.reshape(1, -1))[0])
     
-    st.subheader("📋 Student Data Overview (Z-score)")
-    st.dataframe(student_data.to_frame().T, width="stretch")
-    st.divider()
+    # Lấy điểm thực tế (Ground Truth)
+    actual_score = float(y_test.iloc[idx]) if hasattr(y_test, 'iloc') else float(y_test[idx])
     
-    if st.button("🚀 Run AI Diagnosis & Get Advice", type="primary", width="stretch"):
-        probs = xai_layer.model.predict_proba([student_data.values])
-        dropout_idx = target_names.index("Dropout") if "Dropout" in target_names else 0
-        dropout_prob = float(probs[0][dropout_idx]) * 100 
-        
-        if dropout_prob >= 80:
-            status_text = "🚨 Critical Risk - High chance of dropout"
-            st.error(f"Status: **{status_text}**")
-        elif dropout_prob >= 60:
-            status_text = "⚠️ Academic Warning"
-            st.warning(f"Status: **{status_text}**")
-        elif dropout_prob >= 40:
-            status_text = "🟡 Needs Improvement"
-            st.warning(f"Status: **{status_text}**")
-        elif dropout_prob >= 20:
-            status_text = "✅ Stable Performance"
-            st.success(f"Status: **{status_text}**")
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("🤖 **AI Predicted Exam Score**")
+        # Đổi màu điểm số tùy theo mức độ
+        if predicted_score >= 80:
+            score_class = "score-green"
+            status_text = "🌟 EXCELLENT"
+        elif predicted_score >= 65:
+            score_class = "score-yellow"
+            status_text = "✅ STABLE / GOOD"
         else:
-            status_text = "🌟 Excellent Performance"
-            st.success(f"Status: **{status_text}**")
+            score_class = "score-red"
+            status_text = "🚨 NEEDS IMPROVEMENT"
+            
+        st.markdown(f"<p class='{score_class}'>{predicted_score:.1f} / 100</p>", unsafe_allow_html=True)
+        st.info(f"**Status:** {status_text}")
+        
+    with col2:
+        st.write("👨‍🏫 **Actual Score (Ground Truth)**")
+        st.markdown(f"<p class='big-font' style='color: #555;'>{actual_score:.1f} / 100</p>", unsafe_allow_html=True)
+        st.write(f"*AI prediction error margin: {abs(predicted_score - actual_score):.1f} points*")
 
-        st.metric(label="📊 AI Predicted Risk Level (Dropout)", value=f"{dropout_prob:.1f}%")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("📊 Step 1: Risk Extraction (LIME XAI)")
-            with st.spinner("Analyzing XGBoost model to find root causes..."):
-                lime_reasons = xai_layer.explain_student(X_train, student_data, feature_names, target_names)
+    st.markdown("---")
+    
+    #PHẦN 2: LIME XAI & LLM ADVISOR
+    st.markdown("### 🔍 Root Cause Analysis & AI Advice")
+    
+    col_xai, col_llm = st.columns([1, 1.2], gap="large")
+    
+    with col_xai:
+        st.subheader("Step 1: Point Extraction (LIME)")
+        with st.spinner("Extracting score boosters and reducers..."):
+            # Chạy LIME (Phiên bản Regression)
+            lime_reasons = xai_layer.explain_student(X_train, student_data, feature_names)
+            
+            boosters = [] # Các yếu tố làm TĂNG điểm (Weight > 0)
+            reducers = [] # Các yếu tố làm GIẢM điểm (Weight < 0)
+            minor = []
+            
+            for condition, weight in lime_reasons:
+                if abs(weight) < 0.5: # Lọc các yếu tố tác động dưới 0.5 điểm
+                    minor.append((condition, weight))
+                elif weight > 0:
+                    boosters.append((condition, weight))
+                else:
+                    reducers.append((condition, weight))
+                    
+            # Hiển thị Điểm bị trừ (Reducers)
+            if reducers:
+                st.error("**🔴 Score Reducers (Lost Points):**")
+                for c, w in reducers:
+                    st.write(f"- {c} (Impact: **{w:.2f} pts**)")
+            
+            # Hiển thị Điểm được cộng (Boosters)
+            if boosters:
+                st.success("**🟢 Score Boosters (Added Points):**")
+                for c, w in boosters:
+                    st.write(f"- {c} (Impact: **+{w:.2f} pts**)")
+                    
+            if minor:
+                st.caption("*Minor factors (< 0.5 points) were filtered out.*")
                 
-                negative, positive, minor = [], [], []
-                for condition, weight in lime_reasons:
-                    if abs(weight) < 0.02: 
-                        minor.append((condition, weight))
-                    elif weight > 0:
-                        negative.append((condition, weight))
-                    else:
-                        positive.append((condition, weight))
+    with col_llm:
+        st.subheader("Step 2: GenAI Academic Advisor")
+        with st.spinner("Generating personalized advisory report..."):
+            # Gọi LLM sinh lời khuyên dựa trên Hồi quy
+            # (Thay use_mock=False nếu đã có API Key)
+            # Truyền selected_llm từ Sidebar vào hàm
+            prompt, advice = adv_layer.get_advice(lime_reasons, predicted_score, actual_score, use_mock=False, provider=selected_llm)
+            
+            with st.expander("Show LLM Prompt Context", expanded=False):
+                st.code(prompt, language="markdown")
                 
-                if negative:
-                    st.error("**Major Barriers (Pushing towards Dropout):**")
-                    for cond, weight in negative:
-                        st.write(f"- {cond} (Impact: {weight:.2f})")
-                
-                if positive:
-                    st.success("**Supportive Factors (Preventing Dropout):**")
-                    for cond, weight in positive:
-                        st.write(f"- {cond} (Impact: {weight:.2f})")
-                        
-                if minor:
-                    st.caption("*Minor factors were filtered out to reduce noise.*")
-        
-        with col2:
-            st.subheader("🤖 Step 2: GenAI Academic Advisor")
-            with st.spinner("Generating personalized advisory report..."):
-                raw_prompt, advice = adv_layer.get_advice(lime_reasons, status_text, actual_status)
-                st.markdown(advice)
+            st.markdown(advice)
+
+else:
+    st.info(" Please click **'Extract Random Student'** from the sidebar to start the diagnostic.")

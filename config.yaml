@@ -1,7 +1,6 @@
 data:
-  raw_path: "data/raw/data.csv"
-  processed_path: "data/processed/data_cleaned.csv"
-  target_col: "Target"
+  raw_path: data/raw/StudentPerformanceFactors.csv
+  target_col: Exam_Score
 
 preprocessing:
   test_size: 0.2
