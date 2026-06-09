@@ -13,7 +13,7 @@ Tư vấn tự động: Dịch kết quả toán học từ LIME thành lời kh
 
 Kiến trúc mô-đun hóa: Mã nguồn được chia thành 4 tầng xử lý độc lập, cho phép dễ dàng bảo trì và mở rộng.
 
-# Ngăn xếp công nghệ
+# Tech stack: 
 Ngôn ngữ lập trình: Python
 
 Học máy (Machine Learning): Scikit-learn, XGBoost, CatBoost
