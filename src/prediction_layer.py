@@ -1,15 +1,14 @@
 import yaml
 import joblib
 import os
-import numpy as np
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.ensemble import VotingRegressor, RandomForestRegressor
-from sklearn.linear_model import Ridge
+from sklearn.metrics import accuracy_score, f1_score, classification_report
+from sklearn.ensemble import VotingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
-from catboost import CatBoostRegressor
+from catboost import CatBoostClassifier
 
 class PredictionModel:
-    """Handles the training and evaluation of the core Ensemble Regression model."""
+    """Handles training and evaluation of the core Ensemble Classification model."""
     
     def __init__(self, config_path='config.yaml'):
         with open(config_path, 'r', encoding='utf-8') as f:
@@ -17,55 +16,69 @@ class PredictionModel:
             
         seed = self.config['preprocessing']['random_state']
         
-        # 1. Initialize Base Regressors (Thuật toán dự đoán số)
-        rf = RandomForestRegressor(n_estimators=100, random_state=seed)
-        
-        xgb_model = xgb.XGBRegressor(
-            n_estimators=100, max_depth=6, learning_rate=0.1, 
-            random_state=seed
+        # 1. Initialize Base Classifiers with balanced weights to handle qcut imperfections
+        rf = RandomForestClassifier(
+            n_estimators=100, 
+            random_state=seed, 
+            class_weight='balanced'
         )
         
-        cat = CatBoostRegressor(
-            iterations=100, depth=6, learning_rate=0.1, 
-            random_seed=seed, verbose=0
+        xgb_model = xgb.XGBClassifier(
+            n_estimators=100, 
+            max_depth=6, 
+            learning_rate=0.1, 
+            random_state=seed,
+            objective='multi:softprob' 
         )
         
-        # Thay thế Logistic Regression bằng Ridge Regression cho bài toán số
-        ridge = Ridge(alpha=1.0, random_state=seed)
+        cat = CatBoostClassifier(
+            iterations=100, 
+            depth=6, 
+            learning_rate=0.1, 
+            random_seed=seed, 
+            verbose=0,
+            loss_function='MultiClass',
+            auto_class_weights='Balanced'
+        )
+        
+        # Logistic Regression (Classification)
+        lr = LogisticRegression(
+            max_iter=1000, 
+            random_state=seed, 
+            class_weight='balanced'
+        )
 
-        # 2. Initialize Voting Regressor
-        # Lưu ý: VotingRegressor tự động lấy trung bình cộng dự đoán của 4 mô hình, không cần voting='soft' nữa
-        self.model = VotingRegressor(
+        # 2. Initialize Voting Classifier
+        # voting='soft' is explicitly required for LIME predict_proba later
+        self.model = VotingClassifier(
             estimators=[
                 ('rf', rf),
                 ('xgb', xgb_model),
                 ('cat', cat),
-                ('ridge', ridge)
-            ]
+                ('lr', lr)
+            ],
+            voting='soft'
         )
 
     def train_and_evaluate(self, X_train, y_train, X_test, y_test):
-        """Fits the Ensemble model and evaluates its regression metrics."""
-        print("Training Ensemble Voting Regressor (RF, XGB, CatBoost, Ridge)...")
+        """Fits the Ensemble model and evaluates classification metrics."""
+        print("Training Ensemble Voting Classifier...")
         self.model.fit(X_train, y_train)
         
-        # Dự đoán điểm số trên tập Test
         y_pred = self.model.predict(X_test)
         
-        # Chấm điểm mô hình
-        mae = mean_absolute_error(y_test, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-        r2 = r2_score(y_test, y_pred)
+        acc = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred, average='weighted')
         
         print("\n" + "="*40)
-        print(" ENSEMBLE REGRESSION MODEL RESULTS ")
+        print(" ENSEMBLE CLASSIFICATION MODEL RESULTS ")
         print("="*40)
-        print(f"Mean Absolute Error (MAE): {mae:.2f} points")
-        print(f"Root Mean Squared Error (RMSE): {rmse:.2f} points")
-        print(f"R-squared (R2 Score): {r2:.4f}")
-        print("="*40 + "\n")
+        print(f"Accuracy: {acc:.4f}")
+        print(f"Weighted F1-Score: {f1:.4f}")
+        print("\nDetailed Classification Report:")
+        print(classification_report(y_test, y_pred))
         
-        # Export trained model
+        # Export model
         os.makedirs('outputs/models', exist_ok=True)
         joblib.dump(self.model, 'outputs/models/ensemble_model.pkl')
         

@@ -1,3 +1,22 @@
-Based on the SPECIFIC FACTORS above, please provide a concise analysis report:
-1. Score Diagnosis: Briefly explain why the student received this specific predicted score based on the extracted "Score Boosters" and "Score Reducers".
-2. Actionable Insights: Provide 2-3 targeted suggestions to recover the lost points. Ensure the advice strictly aligns with the factors provided. Keep the format clean and readable using Markdown.
+[OUTPUT REQUIREMENTS]
+
+CRITICAL RULE: DO NOT regurgitate, summarize, or introduce the input data. Jump straight into the Action Plan. 
+
+Format strictly in Markdown using the exact structure below. For each Strategic Action, you MUST provide exactly 3 specific, actionable sub-bullets focusing on the "HOW":
+
+### Strategic Action Plan
+
+**1. [Strategy Name 1 - e.g., Sleep Restructuring & Focus Optimization]**
+* **Technique/Tool:** (Specify a concrete method. e.g., Use the Pomodoro 25/5 technique, block distracting apps with software, apply the 2-minute rule).
+* **Resource Utilization:** (Provide specific examples of free resources strictly aligned with the student's constraints. e.g., Educational YouTube channels, school library, peer study groups, open-source materials).
+* **Habit Stacking:** (Translate the numerical Gap Analysis into daily physical actions. e.g., Instead of saying "sleep 1 more hour", instruct them to "Turn off all screens at 10:30 PM and read a physical book to induce sleep").
+
+**2. [Strategy Name 2 - Focus on the specific gap detected]**
+* **Technique/Tool:** (Detail the specific method).
+* **Resource Utilization:** (Detail the exact resource).
+* **Habit Stacking:** (Detail the daily physical action).
+
+**3. [Strategy Name 3 - If necessary]**
+* **Technique/Tool:** ...
+* **Resource Utilization:** ...
+* **Habit Stacking:** ...

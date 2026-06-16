@@ -3,55 +3,64 @@ from dotenv import load_dotenv
 from groq import Groq
 from google import genai
 
-# Tự động nạp biến môi trường từ file .env
 load_dotenv()
 
 class AdvisoryLayer:
-    """Manages the generation of personalized academic advice using Multi-LLM (Groq & Gemini)."""
+    """Manages the generation of personalized academic advice using Multi-LLM."""
     
     def __init__(self):
-        self.meta_prompt = """
-        🎯 SYSTEM ROLE: You are an expert Educational Data Analyst and Academic Advisor at a technical university. 
-        Your objective is to interpret machine learning regression outputs (Predicted Exam Scores and LIME feature impacts) into professional, empathetic, and highly actionable natural language reports. 
-        Maintain an analytical and objective tone. Focus on how specific behaviors directly added (+) or subtracted (-) points from the student's exam score. Do not use generic, robotic phrases.
-        """
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_dir, "..")) 
         
-        self.format_constraints = """
-        [OUTPUT REQUIREMENTS]
-        Based on the SPECIFIC FACTORS above, please provide a concise analysis report:
-        1. Score Diagnosis: Briefly explain why the student received this specific predicted score based on the extracted "Score Boosters" and "Score Reducers".
-        2. Actionable Insights: Provide 2-3 targeted suggestions to recover the lost points. Ensure the advice strictly aligns with the factors provided. Keep the format clean and readable using Markdown.
-        """
+        meta_path = os.path.join(project_root, "prompts", "meta_prompt.txt")
+        format_path = os.path.join(project_root, "prompts", "format_constraints.txt")
+        
+        # 2. In log ra Terminal để theo dõi bệnh lý
+        print("\n--- SYSTEM DIAGNOSTICS: PROMPT LOADING ---")
+        print(f"Target Meta Path: {meta_path}")
+        print(f"Target Format Path: {format_path}")
+        
+        # 3. Đọc file với cơ chế Fallback
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                self.meta_prompt = f.read()
+                
+            with open(format_path, "r", encoding="utf-8") as f:
+                self.format_constraints = f.read()
+                
+            print("STATUS: SUCCESS. Brain loaded from text files.")
+        except FileNotFoundError as e:
+            print(f"STATUS: FAILED. File not found. Error: {e}")
+            self.meta_prompt = "SYSTEM ROLE: You are an Academic Advisor. OUTPUT CONSTRAINT: You MUST write your ENTIRE response in Vietnamese. No English allowed."
+            self.format_constraints = "Format in Markdown. Go straight to Action Plan. DO NOT output English."
+            
+        print("\n")
 
-        # 1. Khởi tạo Groq Client
+        # Khởi tạo API Clients
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
 
-        # 2. Khởi tạo Gemini Client (Sử dụng SDK google.genai MỚI NHẤT)
         self.gemini_api_key = os.getenv("GEMINI_API_KEYS")
         if self.gemini_api_key:
             self.gemini_client = genai.Client(api_key=self.gemini_api_key)
         else:
             self.gemini_client = None
-
-    def get_advice(self, lime_reasons, predicted_score, actual_score, use_mock=False, provider="Groq (Llama-3.3)"):
-        """Generates advice via selected AI provider with Fallback mechanism."""
-        prompt = self.generate_prompt(lime_reasons, predicted_score, actual_score)
+            
+    def get_advice(self, lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile, use_mock=False, provider="Groq (Llama-3.3)"):
+        prompt = self.generate_prompt(lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile)
         
         if use_mock:
-            return prompt, self._generate_mock_advice(predicted_score, actual_score, lime_reasons)
+            return prompt, self._generate_mock_advice(predicted_class, probabilities, actual_score, lime_reasons, student_data, target_profile)
             
-        # Luồng xử lý định tuyến (Routing)
         if "Groq" in provider:
             return self._call_groq(prompt)
         elif "Gemini" in provider:
             return self._call_gemini(prompt)
         else:
-            return prompt, "🚨 Không tìm thấy AI Provider."
+            return prompt, "Error: AI Provider not found."
 
     def _call_groq(self, prompt):
-        """Gọi Groq, nếu lỗi tự động Fallback sang Gemini"""
-        if not self.groq_client: return prompt, "🚨 Thiếu GROQ_API_KEY trong file .env"
+        if not self.groq_client: return prompt, "Error: Missing GROQ_API_KEY"
         try:
             chat_completion = self.groq_client.chat.completions.create(
                 messages=[
@@ -63,68 +72,83 @@ class AdvisoryLayer:
             )
             return prompt, chat_completion.choices[0].message.content
         except Exception as e:
-            error_msg = f"*(Hệ thống tự động Fallback do Groq lỗi: {e})*\n\n"
+            error_msg = f"*(Fallback due to Groq error: {e})*\n\n"
             _, gemini_response = self._call_gemini(prompt)
             return prompt, error_msg + gemini_response
 
     def _call_gemini(self, prompt):
-        """Gọi Gemini, nếu lỗi tự động Fallback sang Groq"""
-        if not self.gemini_client: return prompt, "🚨 Thiếu GEMINI_API_KEYS trong file .env"
+        if not self.gemini_client: return prompt, "Error: Missing GEMINI_API_KEYS"
         try:
             full_prompt = self.meta_prompt + "\n" + prompt + "\n" + self.format_constraints
-            
-            # Cú pháp gọi API mới toanh của Google
             response = self.gemini_client.models.generate_content(
                 model='gemini-1.5-flash',
                 contents=full_prompt,
             )
             return prompt, response.text
         except Exception as e:
-            error_msg = f"*(Hệ thống tự động Fallback do Gemini lỗi: {e})*\n\n"
+            error_msg = f"*(Fallback due to Gemini error: {e})*\n\n"
             _, groq_response = self._call_groq(prompt)
             return prompt, error_msg + groq_response
 
-    def generate_prompt(self, lime_reasons, predicted_score, actual_score):
-        positive_factors = []
-        negative_factors = []
+    def generate_prompt(self, lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile):
+        class_names = ['Needs Improvement', 'Average', 'Good', 'Excellent']
+        current_tier = class_names[predicted_class]
         
-        for condition, weight in lime_reasons:
-            if abs(weight) < 0.5: continue 
-            if weight > 0:
-                positive_factors.append(f"🟢 Score Booster (Added Points): {condition} (Impact: +{weight:.2f} pts)")
-            else:
-                negative_factors.append(f"🔴 Score Reducer (Lost Points): {condition} (Impact: {weight:.2f} pts)")
+        # Hien thi xac suat cua tat ca cac hang de LLM biet hoc sinh dang dung o ria hay o day
+        prob_text = ", ".join([f"{cls}: {p*100:.1f}%" for cls, p in zip(class_names, probabilities)])
 
-        pos_text = "\n".join(positive_factors) if positive_factors else "- No significant score boosters detected."
-        neg_text = "\n".join(negative_factors) if negative_factors else "- No significant score reducers detected."
+        positive_factors = [f"+{w:.2f} impact: {c}" for c, w in lime_reasons if w > 0]
+        negative_factors = [f"{w:.2f} impact: {c}" for c, w in lime_reasons if w < 0]
 
-        status = "NEEDS IMPROVEMENT" if predicted_score < 65 else "STABLE/GOOD"
+        pos_text = "\n".join(positive_factors) if positive_factors else "- None"
+        neg_text = "\n".join(negative_factors) if negative_factors else "- None"
+
+        # Tinh toan chinh xac khoang cach voi nhom target
+        gap_analysis_text = ""
+        key_features = ['Hours_Studied', 'Sleep_Hours', 'Attendance', 'Tutoring_Sessions']
+        for feat in key_features:
+            if feat in student_data.index and feat in target_profile.index:
+                current_val = student_data[feat]
+                target_val = target_profile[feat]
+                diff = target_val - current_val
+                gap_analysis_text += f"- {feat}: Current = {current_val:.1f} | Target Peer = {target_val:.1f} | Gap = {'+' if diff > 0 else ''}{diff:.1f}\n"
+
+        # Giai ma Ordinal Encoding de cung cap context that cho LLM
+        income_mapping = {0: 'Low', 1: 'Medium', 2: 'High'}
+        income_val = student_data.get('Family_Income', 1)
+        income = income_mapping.get(int(income_val), 'Unknown')
 
         return f"""
         [STUDENT PERFORMANCE OVERVIEW]
-        - AI Predicted Exam Score: {predicted_score:.1f} / 100 ({status})
         - Ground Truth Score: {actual_score:.1f} / 100
+        - AI Predicted Academic Tier: {current_tier}
+        - Tier Probabilities: {prob_text}
+        
+        [PERSONAL CONSTRAINTS]
+        - Family Income Level: {income} (Strictly adhere to meta_prompt rule #3 based on this).
         
         [AI EXTRACTED ROOT CAUSES (from LIME XAI)]
-        STRENGTHS (Factors that increased the score):
+        STRENGTHS (Factors maintaining current probability):
         {pos_text}
         
-        BARRIERS (Factors that dragged the score down):
+        BARRIERS (Factors pushing student to lower tiers):
         {neg_text}
+        
+        [GAP ANALYSIS VS GOOD/EXCELLENT PEERS]
+        (To reach the target tier, the student needs to close these specific gaps):
+        {gap_analysis_text}
         """
 
-    def _generate_mock_advice(self, predicted_score, actual_score, lime_reasons):
-        advice = f"## 📊 Academic Diagnosis\n"
-        advice += f"Based on the AI prediction, you are projected to score **{predicted_score:.1f}/100** (Actual: {actual_score:.1f}/100).\n\n"
-        advice += "## 💡 Actionable Insights (Offline Mode)\n"
+    def _generate_mock_advice(self, predicted_class, probabilities, actual_score, lime_reasons, student_data, target_profile):
+        class_names = ['Needs Improvement', 'Average', 'Good', 'Excellent']
+        advice = f"## Academic Diagnosis\n"
+        advice += f"Predicted Tier: **{class_names[predicted_class]}** (Actual Score: {actual_score:.1f}/100).\n\n"
+        advice += "## Actionable Insights (Offline Mode)\n"
+        advice += "Targeting gaps:\n"
         
-        reducers = [condition for condition, weight in lime_reasons if weight < -0.5]
+        key_features = ['Hours_Studied', 'Attendance']
+        for feat in key_features:
+            if feat in student_data.index:
+                advice += f"- **{feat}**: Current {student_data[feat]:.1f} vs Target {target_profile[feat]:.1f}\n"
         
-        if reducers:
-            advice += "The AI has identified the following areas dragging your score down:\n"
-            for factor in reducers[:2]: 
-                feature_name = factor.split(' <=')[0].split(' >')[0].replace('_', ' ')
-                advice += f"* **Improve {feature_name}:** LIME analysis shows this factor is actively reducing your score.\n"
-        else:
-            advice += "* **Maintain Consistency:** No major negative factors were detected by LIME.\n"
         return advice

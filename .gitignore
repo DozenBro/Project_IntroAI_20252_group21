@@ -1,10 +1,16 @@
-# Bỏ qua data
+
 data/
 
-# Bỏ qua outputs và model
 outputs/
 *.pkl
 
-# Bỏ qua môi trường ảo (nếu chưa có)
+
 venv/
 .env
+
+__pycache__/
+*.log
+.DS_Store
+
+.bat
+

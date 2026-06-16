@@ -65,16 +65,20 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # Cài đặt thư viện
+
 pip install -r requirements.txt
+
 2. Cấu hình biến môi trường
 Tạo một tệp tin tên là .env tại thư mục gốc (ngang hàng với main.py). Thêm các khóa API của bạn vào tệp này:
 
-Đoạn mã
+Đoạn mã:
 GEMINI_API_KEY=your_google_gemini_api_key_here
 GROQ_API_KEY=your_groq_api_key_here
+
 3. Khởi chạy ứng dụng
 Để mở giao diện người dùng, sử dụng lệnh gọi Streamlit trỏ vào tệp app.py trong thư mục app:
 
-Bash
+Bash:
 streamlit run app/app.py
+
 Giao diện chẩn đoán học tập sẽ tự động mở trên trình duyệt tại địa chỉ http://localhost:8501.
