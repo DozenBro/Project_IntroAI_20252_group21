@@ -16,14 +16,14 @@ class DataProcessor:
     def prepare_data(self):
         print(" Starting Data Layer: Preprocessing for Classification Task...")
         
-        # 1. Load data
+        # Load data
         data_path = self.config['data']['raw_path'] 
         df = pd.read_csv(data_path)
         print(f"Initial dataset shape: {df.shape}")
         
         target_col = self.config['data']['target_col']
         
-        # Dùng pd.qcut để tự động chia điểm thành 4 nhóm (Quartiles) có số lượng sinh viên bằng nhau.
+        # Dùng pd.qcut để tự động chia điểm thành 4 nhóm có số lượng sinh viên bằng nhau:
         # 0: Needs Improvement (Dưới nhóm 25%)
         # 1: Average (25% - 50%)
         # 2: Good (50% - 75%)
@@ -34,11 +34,11 @@ class DataProcessor:
         print("Class Distribution:")
         print(df['Target_Class'].value_counts().sort_index())
         
-        # 2. Tách Features (X) và Target (y)
+        #  Tách Features (X) và Target (y)
         X = df.drop(columns=[target_col, 'Target_Class'])
         y = df['Target_Class']
         
-        # Lưu lại điểm gốc để lát nữa Advisory Layer có thể in ra điểm thực tế của học sinh
+        # Lưu lại điểm gốc
         actual_scores = df[target_col] 
         
         seed = self.config['preprocessing']['random_state']
@@ -55,7 +55,7 @@ class DataProcessor:
         X_train = X_train.copy()
         X_test = X_test.copy()
         
-        # 3. Handle Missing Values (Chỉ học Mode từ Train)
+        #  Handle Missing Values (Chỉ học Mode từ Train)
         missing_cols = ['Teacher_Quality', 'Parental_Education_Level', 'Distance_from_Home']
         imputation_values = {}
         
@@ -68,7 +68,7 @@ class DataProcessor:
                 X_train[col] = X_train[col].fillna(mode_val)
                 X_test[col] = X_test[col].fillna(mode_val)
                 
-        # 4. Smart Ordinal Encoding
+        #  Smart Ordinal Encoding
         mapping_dict = {
             'Parental_Involvement': {'Low': 0, 'Medium': 1, 'High': 2},
             'Access_to_Resources': {'Low': 0, 'Medium': 1, 'High': 2},
@@ -90,17 +90,17 @@ class DataProcessor:
                 X_train[col] = X_train[col].map(mapping)
                 X_test[col] = X_test[col].map(mapping)
                 
-        # 5. Selective Scaling
+        #  Selective Scaling 
         numeric_cols = ['Hours_Studied', 'Attendance', 'Sleep_Hours', 'Previous_Scores', 'Tutoring_Sessions', 'Physical_Activity']
         
-        scaler = StandardScaler()
+        scaler = StandardScaler() 
         X_train_scaled = X_train.copy()
         X_test_scaled = X_test.copy()
         
         X_train_scaled[numeric_cols] = scaler.fit_transform(X_train[numeric_cols])
         X_test_scaled[numeric_cols] = scaler.transform(X_test[numeric_cols])
         
-        # 6. Export Artifacts
+        #  Export Artifacts (Scaler, Mapping Dict, Imputation Values, Bin Edges) 
         os.makedirs('outputs/models', exist_ok=True)
         joblib.dump(scaler, 'outputs/models/scaler.pkl')
         joblib.dump(mapping_dict, 'outputs/models/mapping_dict.pkl')

@@ -14,7 +14,6 @@ joblib
 catboost
 
 # --- Explainable AI (XAI) ---
-shap
 lime
 
 # --- Config & Environment ---
@@ -22,9 +21,5 @@ PyYAML
 python-dotenv
 
 # --- LLM APIs (GenAI) ---
-openai
 groq
 google-genai
-
-# --- Jupyter & Interactive Development ---
-ipykernel

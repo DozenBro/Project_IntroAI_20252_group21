@@ -2,7 +2,7 @@ import os
 import yaml
 
 def ensure_directories():
-    """Tự động tạo các thư mục cần thiết nếu chúng chưa tồn tại."""
+    """Tự động tạo các thư mục cần thiết """
     directories = [
         'outputs/models',
         'outputs/figures',

@@ -9,7 +9,7 @@ class XAILayer:
         self.class_names = ['Needs Improvement', 'Average', 'Good', 'Excellent']
 
     def explain_student(self, X_train, student_data, feature_names):
-        # 1. Khoi tao LIME cho Classification
+        # LIME cho Classification
         explainer = lime.lime_tabular.LimeTabularExplainer(
             training_data=X_train.values,
             feature_names=feature_names,
@@ -18,7 +18,7 @@ class XAILayer:
             random_state=42
         )
         
-        # 2. Wrapper bat buoc phai dung predict_proba
+        # Wrapper predict_proba
         def predict_proba_wrapper(data_array):
             df = pd.DataFrame(data_array, columns=feature_names)
             return self.model.predict_proba(df)
@@ -28,7 +28,7 @@ class XAILayer:
         probabilities = self.model.predict_proba(student_df)[0]
         predicted_class_idx = int(probabilities.argmax())
         
-        # 3. Giai thich nguyen nhan dan den viec sinh vien bi xep vao nhan hien tai
+        # Giai thich nguyen nhan dan den viec sinh vien bi xep vao nhan hien tai
         exp = explainer.explain_instance(
             data_row=student_data.values,
             predict_fn=predict_proba_wrapper,

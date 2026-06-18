@@ -11,15 +11,15 @@ def run_automated_pipeline():
     ensure_directories()
     print("INITIATING AUTOMATED BACKEND PIPELINE (CLASSIFICATION)...")
 
-    # 1. Execute Data Layer
+    # Data Layer
     dp = DataProcessor(config_path='config.yaml')
     X_train_scaled, X_test_scaled, y_train, y_test, feature_names, y_test_actual_scores = dp.prepare_data()
 
-    # 2. Execute Prediction Layer
+    # Prediction Layer
     pm = PredictionModel(config_path='config.yaml')
     model = pm.train_and_evaluate(X_train_scaled, y_train, X_test_scaled, y_test)
 
-    # 3. Execute XAI Layer
+    # XAI Layer
     print("\nExtracting a student profile for case study analysis...")
     y_pred = model.predict(X_test_scaled)
     
@@ -64,7 +64,7 @@ def run_automated_pipeline():
             actual_score=actual_score, 
             student_data=student_unscaled,
             target_profile=target_unscaled,
-            use_mock=True # Doi thanh False khi muon goi API that
+            use_mock= False # Doi thanh False khi muon goi API that
         )
 
         # 6. Export Report

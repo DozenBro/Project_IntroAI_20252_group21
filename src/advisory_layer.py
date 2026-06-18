@@ -15,12 +15,11 @@ class AdvisoryLayer:
         meta_path = os.path.join(project_root, "prompts", "meta_prompt.txt")
         format_path = os.path.join(project_root, "prompts", "format_constraints.txt")
         
-        # 2. In log ra Terminal để theo dõi bệnh lý
         print("\n--- SYSTEM DIAGNOSTICS: PROMPT LOADING ---")
         print(f"Target Meta Path: {meta_path}")
         print(f"Target Format Path: {format_path}")
         
-        # 3. Đọc file với cơ chế Fallback
+        # Đọc file với cơ chế Fallback
         try:
             with open(meta_path, "r", encoding="utf-8") as f:
                 self.meta_prompt = f.read()
@@ -36,16 +35,17 @@ class AdvisoryLayer:
             
         print("\n")
 
-        # Khởi tạo API Clients
+        # API
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
 
-        self.gemini_api_key = os.getenv("GEMINI_API_KEYS")
-        if self.gemini_api_key:
-            self.gemini_client = genai.Client(api_key=self.gemini_api_key)
+        gemini_api_key = os.getenv("GEMINI_API_KEYS")
+        if gemini_api_key:
+            self.gemini_client = genai.Client(api_key=gemini_api_key) 
         else:
             self.gemini_client = None
-            
+        
+        # 
     def get_advice(self, lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile, use_mock=False, provider="Groq (Llama-3.3)"):
         prompt = self.generate_prompt(lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile)
         
@@ -77,14 +77,16 @@ class AdvisoryLayer:
             return prompt, error_msg + gemini_response
 
     def _call_gemini(self, prompt):
-        if not self.gemini_client: return prompt, "Error: Missing GEMINI_API_KEYS"
+        if not self.gemini_client: 
+            return prompt, "Error: Missing GEMINI_API_KEYS" 
         try:
             full_prompt = self.meta_prompt + "\n" + prompt + "\n" + self.format_constraints
             response = self.gemini_client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.0-flash',  
                 contents=full_prompt,
             )
             return prompt, response.text
+            
         except Exception as e:
             error_msg = f"*(Fallback due to Gemini error: {e})*\n\n"
             _, groq_response = self._call_groq(prompt)
@@ -94,7 +96,7 @@ class AdvisoryLayer:
         class_names = ['Needs Improvement', 'Average', 'Good', 'Excellent']
         current_tier = class_names[predicted_class]
         
-        # Hien thi xac suat cua tat ca cac hang de LLM biet hoc sinh dang dung o ria hay o day
+        # Probabilities text for LLM context
         prob_text = ", ".join([f"{cls}: {p*100:.1f}%" for cls, p in zip(class_names, probabilities)])
 
         positive_factors = [f"+{w:.2f} impact: {c}" for c, w in lime_reasons if w > 0]

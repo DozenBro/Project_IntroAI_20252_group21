@@ -16,17 +16,17 @@ class PredictionModel:
             
         seed = self.config['preprocessing']['random_state']
         
-        # 1. Initialize Base Classifiers with balanced weights to handle qcut imperfections
+        # Initialize Base Classifiers with balanced weights to handle qcut imperfections
         rf = RandomForestClassifier(
-            n_estimators=100, 
-            random_state=seed, 
-            class_weight='balanced'
+            n_estimators=100, # enough trees for variance reduction
+            random_state=seed, # fixed seed 
+            class_weight='balanced' # handle dataset imbalance
         )
         
         xgb_model = xgb.XGBClassifier(
             n_estimators=100, 
-            max_depth=6, 
-            learning_rate=0.1, 
+            max_depth=6, # small tree to avoid overfitting
+            learning_rate=0.1, # safe learning rate
             random_state=seed,
             objective='multi:softprob' 
         )
@@ -36,19 +36,19 @@ class PredictionModel:
             depth=6, 
             learning_rate=0.1, 
             random_seed=seed, 
-            verbose=0,
-            loss_function='MultiClass',
+            verbose=0, # no output during training
+            loss_function='MultiClass', 
             auto_class_weights='Balanced'
         )
         
         # Logistic Regression (Classification)
         lr = LogisticRegression(
-            max_iter=1000, 
+            max_iter=1000, # ensure convergence
             random_state=seed, 
             class_weight='balanced'
         )
 
-        # 2. Initialize Voting Classifier
+        # Initialize Voting Classifier
         # voting='soft' is explicitly required for LIME predict_proba later
         self.model = VotingClassifier(
             estimators=[
