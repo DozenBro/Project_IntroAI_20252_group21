@@ -7,12 +7,15 @@ import sys
 
 # Setup paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, ".."))
-sys.path.append(project_root)
+src_dir = os.path.abspath(os.path.join(current_dir, ".."))
+project_root = os.path.abspath(os.path.join(src_dir, ".."))
+sys.path.append(project_root) 
+sys.path.append(src_dir)
 
-from src.xai_layer import XAILayer
-from src.advisory_layer import AdvisoryLayer
-from src.data_layer import DataProcessor # Dùng để load config nếu cần
+
+from xai_layer import XAILayer
+from advisory_layer import AdvisoryLayer
+from data_layer import DataProcessor
 
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="SmartEdu AI Advisor", page_icon="🎓", layout="wide")

@@ -20,63 +20,95 @@ def run_automated_pipeline():
     model = pm.train_and_evaluate(X_train_scaled, y_train, X_test_scaled, y_test)
 
     # XAI Layer
-    print("\nExtracting a student profile for case study analysis...")
+    print("\nExtracting specific student profiles for 3 core Case Studies...")
     y_pred = model.predict(X_test_scaled)
     
-    # Tim sinh vien duoc du doan thuoc nhom 0 (Needs Improvement)
-    low_score_indices = [i for i, pred in enumerate(y_pred) if pred == 0]
+    # (Needs Improvement)
+    tier_0_indices = [i for i, pred in enumerate(y_pred) if pred == 0]
     
-    if len(low_score_indices) > 0:
-        sample_idx = low_score_indices[0]
-        student_data_scaled = X_test_scaled.iloc[sample_idx]
-        predicted_class = int(y_pred[sample_idx])
-        actual_score = float(y_test_actual_scores.iloc[sample_idx])
-        
-        print(f"Analyzing student at index {sample_idx}. Predicted Class: {predicted_class}, Actual Score: {actual_score:.1f}")
-        
-        xai = XAILayer(model_path='outputs/models/ensemble_model.pkl')
-        lime_reasons, predicted_class_idx, probabilities = xai.explain_student(X_train_scaled, student_data_scaled, feature_names)
-
-        # 4. Tinh toan Gap Analysis bang du lieu goc (Chua Scale)
+    if len(tier_0_indices) > 0:
+        # Load scaler & chuẩn bị "Target Profile" (Mục tiêu phấn đấu) trước khi vào vòng lặp
         scaler = joblib.load('outputs/models/scaler.pkl')
         numeric_cols = ['Hours_Studied', 'Attendance', 'Sleep_Hours', 'Previous_Scores', 'Tutoring_Sessions', 'Physical_Activity']
         
-        # Lay muc tieu la nhung sinh vien thuoc nhom 2 (Good) hoac 3 (Excellent)
         target_idx = (y_train == 2) | (y_train == 3)
         target_profile_scaled = X_train_scaled.loc[target_idx].mean()
         
-        # Inverse transform de LLM doc duoc con so thuc te (Vi du: 5 gio hoc, thay vi -1.2)
-        student_unscaled = student_data_scaled.copy()
-        target_unscaled = target_profile_scaled.copy()
+        # 3 case studies đại diện
+        min_income_encoded = X_test_scaled['Family_Income'].min()
+        max_income_encoded = X_test_scaled['Family_Income'].max()
         
-        student_num_df = pd.DataFrame([student_data_scaled[numeric_cols].values], columns=numeric_cols)
-        target_num_df = pd.DataFrame([target_profile_scaled[numeric_cols].values], columns=numeric_cols)
+        case_1_idx = None # Sinh viên nghèo
+        case_2_idx = None # Sinh viên giàu
+        case_3_idx = None # Nghịch lý Burnout 
         
-        student_unscaled[numeric_cols] = scaler.inverse_transform(student_num_df)[0]
-        target_unscaled[numeric_cols] = scaler.inverse_transform(target_num_df)[0]
-
-        # 5. Execute Advisory Layer
-        adv = AdvisoryLayer()
-        prompt, advice = adv.get_advice(
-            lime_reasons=lime_reasons, 
-            predicted_class=predicted_class_idx, 
-            probabilities=probabilities,
-            actual_score=actual_score, 
-            student_data=student_unscaled,
-            target_profile=target_unscaled,
-            use_mock= False # Doi thanh False khi muon goi API that
-        )
-
-        # 6. Export Report
-        report_filename = f"outputs/reports/student_{sample_idx}_classification_diagnostic.md"
-        with open(report_filename, "w", encoding="utf-8") as f:
-            f.write(advice)
+        for idx in tier_0_indices:
+            student_row = X_test_scaled.iloc[idx]
+            # Săn Case 1
+            if case_1_idx is None and student_row['Family_Income'] == min_income_encoded:
+                case_1_idx = idx
+            # Săn Case 2
+            if case_2_idx is None and student_row['Family_Income'] == max_income_encoded:
+                case_2_idx = idx
+            # Săn Case 3 
+            if case_3_idx is None and student_row['Hours_Studied'] > 0.5: 
+                case_3_idx = idx
+                
+        # Fallback 
+        case_1_idx = case_1_idx if case_1_idx is not None else tier_0_indices[0]
+        case_2_idx = case_2_idx if case_2_idx is not None else (tier_0_indices[1] if len(tier_0_indices) > 1 else tier_0_indices[0])
+        case_3_idx = case_3_idx if case_3_idx is not None else tier_0_indices[-1]
+        
+        case_studies = [
+            ("Case1_LowIncome", case_1_idx),
+            ("Case2_HighIncome", case_2_idx),
+            ("Case3_BurnoutParadox", case_3_idx)
+        ]
+        
+        # Vòng lặp XAI & LLM cho 3 Case
+        for case_name, sample_idx in case_studies:
+            print(f"\n---> Executing {case_name} (Test Set Index: {sample_idx})")
             
-        print(f"\nSUCCESS: Detailed diagnostic report saved to '{report_filename}'!")
+            student_data_scaled = X_test_scaled.iloc[sample_idx]
+            actual_score = float(y_test_actual_scores.iloc[sample_idx])
+            
+            # Giải thích mô hình
+            xai = XAILayer(model_path='outputs/models/ensemble_model.pkl')
+            lime_reasons, predicted_class_idx, probabilities = xai.explain_student(X_train_scaled, student_data_scaled, feature_names)
+
+            # Inverse Transform 
+            student_unscaled = student_data_scaled.copy()
+            target_unscaled = target_profile_scaled.copy()
+            
+            student_num_df = pd.DataFrame([student_data_scaled[numeric_cols].values], columns=numeric_cols)
+            target_num_df = pd.DataFrame([target_profile_scaled[numeric_cols].values], columns=numeric_cols)
+            
+            student_unscaled[numeric_cols] = scaler.inverse_transform(student_num_df)[0]
+            target_unscaled[numeric_cols] = scaler.inverse_transform(target_num_df)[0]
+
+            # Tư vấn học tập bằng LLM
+            adv = AdvisoryLayer()
+            prompt, advice = adv.get_advice(
+                lime_reasons=lime_reasons, 
+                predicted_class=predicted_class_idx, 
+                probabilities=probabilities,
+                actual_score=actual_score, 
+                student_data=student_unscaled,
+                target_profile=target_unscaled,
+                use_mock=False 
+            )
+
+            # Lưu File Markdown
+            report_filename = f"outputs/reports/{case_name}_Student{sample_idx}_Diagnostic.md"
+            with open(report_filename, "w", encoding="utf-8") as f:
+                f.write(advice)
+                
+            print(f"SUCCESS: Report saved to '{report_filename}'!")
+            
     else:
         print("No students in the 'Needs Improvement' class found in the test set.")
 
-    print("PIPELINE EXECUTION COMPLETE!")
+    print("\nPIPELINE EXECUTION COMPLETE!")
 
 if __name__ == "__main__":
     run_automated_pipeline()

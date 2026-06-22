@@ -6,6 +6,10 @@ from sklearn.ensemble import VotingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
 from catboost import CatBoostClassifier
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+import numpy as np
 
 class PredictionModel:
     """Handles training and evaluation of the core Ensemble Classification model."""
@@ -49,7 +53,7 @@ class PredictionModel:
         )
 
         # Initialize Voting Classifier
-        # voting='soft' is explicitly required for LIME predict_proba later
+        # voting='soft' - %
         self.model = VotingClassifier(
             estimators=[
                 ('rf', rf),
@@ -81,5 +85,37 @@ class PredictionModel:
         # Export model
         os.makedirs('outputs/models', exist_ok=True)
         joblib.dump(self.model, 'outputs/models/ensemble_model.pkl')
+        
+        # BỔ SUNG: VẼ VÀ LƯU BIỂU ĐỒ ĐỂ CHỨNG MINH THỰC NGHIỆM 
+        print("\n[DIAGNOSTIC] Generating and saving evaluation figures...")
+        
+        # Vẽ Confusion Matrix (Ma trận nhầm lẫn)
+        cm = confusion_matrix(y_test, y_pred)
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                    xticklabels=['Needs Impr (0)', 'Average (1)', 'Good (2)', 'Excellent (3)'], 
+                    yticklabels=['Needs Impr (0)', 'Average (1)', 'Good (2)', 'Excellent (3)'])
+        plt.title('Confusion Matrix: Model Confusion between Tier 1 & Tier 2')
+        plt.ylabel('Actual Tier')
+        plt.xlabel('Predicted Tier')
+        plt.tight_layout()
+        plt.savefig('outputs/figures/confusion_matrix.png')
+        plt.close()
+
+        # Vẽ Feature Importance (Lấy từ mô hình Random Forest trong Ensemble)
+        rf_model = self.model.named_estimators_['rf']
+        importances = rf_model.feature_importances_
+        feature_names = X_train.columns
+        indices = np.argsort(importances)[::-1][:10] # Lấy top 10
+        
+        plt.figure(figsize=(10, 6))
+        plt.title("Top 10 Feature Importances (Random Forest Base Model)")
+        plt.bar(range(10), importances[indices], align="center", color='coral')
+        plt.xticks(range(10), [feature_names[i] for i in indices], rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig('outputs/figures/feature_importance.png')
+        plt.close()
+        
+        print("[DIAGNOSTIC] SUCCESS: Figures saved to 'outputs/figures/'")
         
         return self.model

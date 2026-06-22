@@ -1,25 +1,24 @@
-# --- Frontend & Visualization ---
 streamlit
 matplotlib
 seaborn
 
-# --- Data Processing & Core Math ---
+
 pandas
 numpy
 
-# --- Machine Learning ---
+
 scikit-learn
 xgboost
 joblib
 catboost
 
-# --- Explainable AI (XAI) ---
+
 lime
 
-# --- Config & Environment ---
+
 PyYAML
 python-dotenv
 
-# --- LLM APIs (GenAI) ---
+
 groq
 google-genai
