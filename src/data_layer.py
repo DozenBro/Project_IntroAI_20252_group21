@@ -3,6 +3,7 @@ import yaml
 import os
 import joblib
 import numpy as np
+import sqlite3
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -17,8 +18,15 @@ class DataProcessor:
         print(" Starting Data Layer: Preprocessing for Classification Task...")
         
         # Load data
-        data_path = self.config['data']['raw_path'] 
-        df = pd.read_csv(data_path)
+        #data_path = self.config['data']['raw_path'] 
+        #df = pd.read_csv(data_path)
+        db_path = self.config['data']['db_path']
+        if not os.path.exists(db_path):
+            raise FileNotFoundError(f"Không tìm thấy Database tại {db_path} chạy 'python create_db.py' trước!")
+            
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql_query("SELECT * FROM students_performance", conn)
+        conn.close()
         print(f"Initial dataset shape: {df.shape}")
         
         target_col = self.config['data']['target_col']
