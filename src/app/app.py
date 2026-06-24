@@ -170,10 +170,9 @@ if predict_btn:
     with col2:
         st.subheader("Step 2: GenAI Advisory Roadmap")
         with st.spinner("Generating personalized advisory roadmap..."):
-            actual_score_placeholder = 0.0 # UI ko biết điểm thật tương lai, để 0
             prompt, advice = adv_layer.get_advice(
                 lime_reasons, predicted_class, probabilities, 
-                actual_score_placeholder, student_unscaled, target_profile_unscaled, 
+                 student_unscaled, target_profile_unscaled, 
                 use_mock=False, provider=selected_llm
             )
             

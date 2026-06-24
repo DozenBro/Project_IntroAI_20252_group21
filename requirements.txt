@@ -1,24 +1,27 @@
+# Web App & UI
 streamlit
-matplotlib
-seaborn
 
-
+# Data Processing and Machine Learning
 pandas
 numpy
-
-
 scikit-learn
-xgboost
+imbalanced-learn
 joblib
+xgboost
 catboost
 
-
+# Explainable AI
 lime
 
-
+# GenAI & Utils
+groq
+google-genai
 PyYAML
 python-dotenv
 
+# Visualization (Cho báo cáo)
+matplotlib
+seaborn
 
-groq
-google-genai
+# System Utilities
+openpyxl

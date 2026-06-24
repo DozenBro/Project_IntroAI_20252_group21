@@ -11,13 +11,15 @@ def run_automated_pipeline():
     ensure_directories()
     print("INITIATING AUTOMATED BACKEND PIPELINE (CLASSIFICATION)...")
 
-    # Data Layer
+# Data Layer
     dp = DataProcessor(config_path='config.yaml')
-    X_train_scaled, X_test_scaled, y_train, y_test, feature_names, y_test_actual_scores = dp.prepare_data()
+    
+    X_train_resampled, X_test_scaled, y_train_resampled, y_test_binned, feature_names, y_test_actual_scores = dp.prepare_data()
 
     # Prediction Layer
     pm = PredictionModel(config_path='config.yaml')
-    model = pm.train_and_evaluate(X_train_scaled, y_train, X_test_scaled, y_test)
+    
+    model = pm.train_and_evaluate(X_train_resampled, y_train_resampled, X_test_scaled, y_test_binned)
 
     # XAI Layer
     print("\nExtracting specific student profiles for 3 core Case Studies...")
@@ -27,12 +29,12 @@ def run_automated_pipeline():
     tier_0_indices = [i for i, pred in enumerate(y_pred) if pred == 0]
     
     if len(tier_0_indices) > 0:
-        # Load scaler & chuẩn bị "Target Profile" (Mục tiêu phấn đấu) trước khi vào vòng lặp
+        # Load scaler & chuẩn bị "Target Profile"  trước khi vào vòng lặp
         scaler = joblib.load('outputs/models/scaler.pkl')
         numeric_cols = ['Hours_Studied', 'Attendance', 'Sleep_Hours', 'Previous_Scores', 'Tutoring_Sessions', 'Physical_Activity']
         
-        target_idx = (y_train == 2) | (y_train == 3)
-        target_profile_scaled = X_train_scaled.loc[target_idx].mean()
+        target_idx = (y_train_resampled == 2) | (y_train_resampled == 3)
+        target_profile_scaled = X_train_resampled.loc[target_idx].mean()
         
         # 3 case studies đại diện
         min_income_encoded = X_test_scaled['Family_Income'].min()
@@ -74,7 +76,7 @@ def run_automated_pipeline():
             
             # Giải thích mô hình
             xai = XAILayer(model_path='outputs/models/ensemble_model.pkl')
-            lime_reasons, predicted_class_idx, probabilities = xai.explain_student(X_train_scaled, student_data_scaled, feature_names)
+            lime_reasons, predicted_class_idx, probabilities = xai.explain_student(X_train_resampled, student_data_scaled, feature_names)
 
             # Inverse Transform 
             student_unscaled = student_data_scaled.copy()
@@ -92,7 +94,7 @@ def run_automated_pipeline():
                 lime_reasons=lime_reasons, 
                 predicted_class=predicted_class_idx, 
                 probabilities=probabilities,
-                actual_score=actual_score, 
+            #    actual_score=actual_score, 
                 student_data=student_unscaled,
                 target_profile=target_unscaled,
                 use_mock=False 

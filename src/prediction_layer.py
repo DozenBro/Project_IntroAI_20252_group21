@@ -86,7 +86,6 @@ class PredictionModel:
         os.makedirs('outputs/models', exist_ok=True)
         joblib.dump(self.model, 'outputs/models/ensemble_model.pkl')
         
-        # BỔ SUNG: VẼ VÀ LƯU BIỂU ĐỒ ĐỂ CHỨNG MINH THỰC NGHIỆM 
         print("\n[DIAGNOSTIC] Generating and saving evaluation figures...")
         
         # Vẽ Confusion Matrix (Ma trận nhầm lẫn)

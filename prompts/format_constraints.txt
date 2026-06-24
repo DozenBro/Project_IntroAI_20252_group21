@@ -1,22 +1,23 @@
-[OUTPUT REQUIREMENTS]
+[OUTPUT FORMAT]
+Respond in Markdown. Follow this flow (you can be creative):
 
-CRITICAL RULE: DO NOT regurgitate, summarize, or introduce the input data. Jump straight into the Action Plan. 
+### 1. Academic Diagnosis & Insights
+*(Write 1-2 conversational paragraphs. Empathize with the student. Explicitly state their Predicted Tier and Actual Score. If they are not in the "Excellent" tier, synthesize the LIME factors to explain exactly WHICH habits/factors are pulling their score down. If they are "Excellent", praise their retention factors.)*
 
-Format strictly in Markdown using the exact structure below. For each Strategic Action, you MUST provide exactly 3 specific, actionable sub-bullets focusing on the "HOW". 
+### 2. Strategic Action Plan
+*(Provide exactly 3 strategic actions tailored to close their specific gaps. Follow this sub-bullet format strictly for each)*
 
-### Strategic Action Plan
+**Action 1: [Name tailored to the most critical gap]**
+* **Technique:** (Specific, advanced method. No clichés).
+* **Resources:** (Specific tools, dynamically adjusted to their Income Level).
+* **Habit Stacking:** (A daily, physical action tied to a specific time or existing routine. E.g., "Immediately after [Action A], I will [Action B]").
 
-**1. [Strategy Name 1 - Tailored to the most critical gap]**
-* **Technique/Tool:** (Name a highly specific, unconventional, or advanced method suited to the student's exact problem. DO NOT use generic terms like "study harder").
-* **Resource Utilization:** (Provide exact names of tools, platforms, or resources. Adjust the cost of these resources dynamically based on the student's Family Income Level).
-* **Habit Stacking:** (Translate the strategy into a hyper-specific daily physical action tied to a time or existing habit. E.g., "Immediately after [Action A], do [Action B]").
+**Action 2: [Focus on the second gap]**
+* **Technique:** ...
+* **Resources:** ...
+* **Habit Stacking:** ...
 
-**2. [Strategy Name 2 - Focus on the second gap detected]**
-* **Technique/Tool:** (Detail the specific method).
-* **Resource Utilization:** (Detail the exact resource).
-* **Habit Stacking:** (Detail the daily physical action).
-
-**3. [Strategy Name 3 - If necessary]**
-* **Technique/Tool:** ...
-* **Resource Utilization:** ...
+**Action 3: [Sustained growth or addressing the final barrier]**
+* **Technique:** ...
+* **Resources:** ...
 * **Habit Stacking:** ...

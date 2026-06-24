@@ -86,3 +86,5 @@ python -m src.main
 
 Bash:
 streamlit run src\app\app.py
+
+press ctr C to stop terminal running streamlit

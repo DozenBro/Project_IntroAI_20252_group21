@@ -2,13 +2,27 @@ import os
 from dotenv import load_dotenv
 from groq import Groq
 from google import genai
-
 load_dotenv()
 
 class AdvisoryLayer:
     """Manages the generation of personalized academic advice using Multi-LLM."""
     
     def __init__(self):
+        load_dotenv()
+        
+        #  KHỞI TẠO GROQ 
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
+
+        #  KHỞI TẠO GEMINI (Dọn dẹp code thừa) 
+        self.gemini_api_key = os.getenv("GEMINI_API_KEYS")
+        if self.gemini_api_key:
+            self.gemini_client = genai.Client(api_key=self.gemini_api_key) 
+        else:
+            self.gemini_client = None
+            print("CẢNH BÁO: Không tìm thấy GEMINI_API_KEYS trong file .env!")
+            
+        #  ĐỌC FILE PROMPT 
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.abspath(os.path.join(current_dir, "..")) 
         
@@ -19,7 +33,6 @@ class AdvisoryLayer:
         print(f"Target Meta Path: {meta_path}")
         print(f"Target Format Path: {format_path}")
         
-        # Đọc file với cơ chế Fallback
         try:
             with open(meta_path, "r", encoding="utf-8") as f:
                 self.meta_prompt = f.read()
@@ -30,27 +43,16 @@ class AdvisoryLayer:
             print("STATUS: SUCCESS. Brain loaded from text files.")
         except FileNotFoundError as e:
             print(f"STATUS: FAILED. File not found. Error: {e}")
-            self.meta_prompt = "SYSTEM ROLE: You are an Academic Advisor. OUTPUT CONSTRAINT: You MUST write your ENTIRE response in Vietnamese. No English allowed."
-            self.format_constraints = "Format in Markdown. Go straight to Action Plan. DO NOT output English."
+            self.meta_prompt = "SYSTEM ROLE: You are an Academic Advisor. OUTPUT LANGUAGE CONSTRAINT: English only."
+            self.format_constraints = "Format in Markdown. Go straight to the Action Plan."
             
         print("\n")
-
-        # API
-        self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
-
-        gemini_api_key = os.getenv("GEMINI_API_KEYS")
-        if gemini_api_key:
-            self.gemini_client = genai.Client(api_key=gemini_api_key) 
-        else:
-            self.gemini_client = None
-        
         # 
-    def get_advice(self, lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile, use_mock=False, provider="Groq (Llama-3.3)"):
-        prompt = self.generate_prompt(lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile)
+    def get_advice(self, lime_reasons, predicted_class, probabilities, student_data, target_profile, use_mock=False, provider="Groq (Llama-3.3)"):
+        prompt = self.generate_prompt(lime_reasons, predicted_class, probabilities, student_data, target_profile)
         
         if use_mock:
-            return prompt, self._generate_mock_advice(predicted_class, probabilities, actual_score, lime_reasons, student_data, target_profile)
+            return prompt, self._generate_mock_advice(predicted_class, probabilities, lime_reasons, student_data, target_profile)
             
         if "Groq" in provider:
             return self._call_groq(prompt)
@@ -77,22 +79,21 @@ class AdvisoryLayer:
             return prompt, error_msg + gemini_response
 
     def _call_gemini(self, prompt):
-        if not self.gemini_client: 
-            return prompt, "Error: Missing GEMINI_API_KEYS" 
+        """Hàm thực thi kết nối với server Google Gemini bằng SDK mới"""
+        if not self.gemini_client:
+            return prompt, "Lỗi: Hệ thống chưa được cấu hình GEMINI_API_KEYS. Vui lòng kiểm tra file .env."
+            
         try:
-            full_prompt = self.meta_prompt + "\n" + prompt + "\n" + self.format_constraints
+            #  Trả về model thế hệ 2.5 (hoặc 2.0) hiện hành của Google 
             response = self.gemini_client.models.generate_content(
-                model='gemini-2.0-flash',  
-                contents=full_prompt,
+                model='gemini-2.5-flash', 
+                contents=prompt,
             )
             return prompt, response.text
-            
         except Exception as e:
-            error_msg = f"*(Fallback due to Gemini error: {e})*\n\n"
-            _, groq_response = self._call_groq(prompt)
-            return prompt, error_msg + groq_response
+            return prompt, f"Lỗi gọi API Google Gemini: {str(e)}"
 
-    def generate_prompt(self, lime_reasons, predicted_class, probabilities, actual_score, student_data, target_profile):
+    def generate_prompt(self, lime_reasons, predicted_class, probabilities, student_data, target_profile):
         class_names = ['Needs Improvement', 'Average', 'Good', 'Excellent']
         current_tier = class_names[predicted_class]
         
@@ -107,7 +108,7 @@ class AdvisoryLayer:
 
         # Tinh toan chinh xac khoang cach voi nhom target
         gap_analysis_text = ""
-        key_features = ['Hours_Studied', 'Sleep_Hours', 'Attendance', 'Tutoring_Sessions']
+        key_features = ['Hours_Studied', 'Sleep_Hours', 'Attendance', 'Tutoring_Sessions', 'Previous_Scores']
         for feat in key_features:
             if feat in student_data.index and feat in target_profile.index:
                 current_val = student_data[feat]
@@ -122,12 +123,11 @@ class AdvisoryLayer:
 
         return f"""
         [STUDENT PERFORMANCE OVERVIEW]
-        - Ground Truth Score: {actual_score:.1f} / 100
         - AI Predicted Academic Tier: {current_tier}
         - Tier Probabilities: {prob_text}
         
         [PERSONAL CONSTRAINTS]
-        - Family Income Level: {income} (Strictly adhere to meta_prompt rule #3 based on this).
+        - Family Income Level: {income}.
         
         [AI EXTRACTED ROOT CAUSES (from LIME XAI)]
         STRENGTHS (Factors maintaining current probability):
@@ -148,7 +148,7 @@ class AdvisoryLayer:
         advice += "## Actionable Insights (Offline Mode)\n"
         advice += "Targeting gaps:\n"
         
-        key_features = ['Hours_Studied', 'Attendance']
+        key_features = ['Hours_Studied', 'Sleep_Hours', 'Attendance', 'Tutoring_Sessions', 'Previous_Scores']
         for feat in key_features:
             if feat in student_data.index:
                 advice += f"- **{feat}**: Current {student_data[feat]:.1f} vs Target {target_profile[feat]:.1f}\n"
